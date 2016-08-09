@@ -1,0 +1,140 @@
+---
+title: "Data Wrangling 1"
+author: "Georgie Knight"
+date: "8 August 2016"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+The task here is to load a data set which is saved as a .csv file and 'clean up' the data in order to make it easier to analyse.
+
+## Dplyr
+
+We first load the _dplyr_ and _tidyr_ packages which will help us wrangle the data:
+
+```{r}
+library("dplyr")
+library("tidyr")
+```
+## Loading up the data
+
+Then we load the file 'refine_original.csv' into R and save it as a data frame called 'data_fr':
+
+```{r}
+refine_original <- read.csv("C:/Users/Georgie/Dropbox/Springboard/DataWrangling1/refine_original.csv")
+data_fr <- data.frame(refine_original)
+```
+
+We then convert it to a table  called 'my_tbl' within the dplyr package...
+
+```{r}
+my_tbl<-dplyr::tbl_df(data_fr)
+
+```
+... and take a quick look at it:
+```{r, echo = FALSE}
+my_tbl
+```
+
+##Task 1: Clean up brand names
+
+_Clean up the 'company' column, so all of the misspellings of the brand names are standardized._
+
+We first standardise the column company by using the _mutate_ function combined with the _tolower_ function
+
+```{r}
+my_tbl <- mutate(my_tbl, company = tolower(company))
+my_tbl$company 
+```
+
+Check the first letters of the company names that are unique as we will use these to rewrite the company column:
+
+```{r}
+temp <- my_tbl %>% select(company) %>% mutate(first_letter = substr(company,1,1))
+unique(temp$first_letter)
+```
+We then use a _pipe_ to first create a column which contains the first letter of the company name and then use this column along with _replace_ to standardise all the names
+
+
+```{r}
+my_tbl <- my_tbl  %>% 
+  mutate(first_letter = substr(company,1,1))  %>% 
+  mutate(company = replace(company, first_letter == "p", "philips")) %>% 
+  mutate(company = replace(company, first_letter == "a", "akzo")) %>% 
+  mutate(company = replace(company, first_letter == 'f', 'philips')) %>% 
+  mutate(company = replace(company, first_letter == "v", "van houten")) %>%
+  mutate(company = replace(company, first_letter == 'u', 'unilever')) %>% 
+  select(-first_letter)
+
+my_tbl$company
+```
+
+##Task 2: Separate product code and number
+
+_Separate the product code and product number into separate columns_
+
+We'll use the _separate_ function from _tidyr_ to do this.
+```{r}
+my_tbl <- 
+separate(my_tbl, Product.code...number , c("product_code", "product_number"),
+         sep = '-', remove = FALSE)
+my_tbl
+```
+
+##Task 3: Add product categories
+_You learn that the product codes actually represent the following product categories: p = Smartphone, v = TV, x = Laptop, q = Tablet. In order to make the data more readable, add a column with the product category for each record._
+
+We again just use the _mutate_ function along with _replace_ for this.
+```{r}
+my_tbl <- my_tbl  %>% 
+mutate(product_category = product_code)  %>% 
+mutate(
+product_category = replace(product_category, product_code == "p", "Smartphone"), 
+product_category = replace(product_category, product_code == "v", "TV"),
+product_category = replace(product_category, product_code == "x", "Laptop"),
+product_category = replace(product_category, product_code== "q", "Tablet")
+      ) 
+
+select(my_tbl,product_code, product_category)
+```
+
+
+##Task 4: Add address
+
+Concatenate the address, city and country into a full_address column using the _paste_ function:
+
+```{r}
+my_tbl <-
+  mutate(
+         my_tbl, full_address = paste(address, city, country, sep= ',')
+         )
+
+my_tbl$full_address
+```  
+
+##Taks 5: Create dummy variables for company and product category
+For each company and product, create a binary $0,1$ column which contains $1$ when the company/ product is in that row, $0$ otherwise. We use a TRUTH assignment converted to integer for this.
+
+```{r}
+my_tbl <-mutate( my_tbl,
+          company_philips = as.integer(company == 'philips'), 
+          company_akzo = as.integer(company == 'akzo'),
+          company_van_houten = as.integer(company == 'van houten'),
+          company_unilever = as.integer(company == 'unilever'),
+          product_smartphone = as.integer(product_code == 'p'), 
+          product_tv = as.integer(product_code == 'v'),
+          product_laptop = as.integer(product_code == 'x'),
+          product_tablet =  as.integer(product_code == 'q')
+          )
+
+select(my_tbl, contains('com'))
+select(my_tbl, contains('product_'), -product_number)
+```
+
+Now save the cleaned table as a .csv.
+```{r}
+write.csv(my_tbl, file="refine_clean.csv")
+```  
+  
